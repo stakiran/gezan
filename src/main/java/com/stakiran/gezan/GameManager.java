@@ -22,7 +22,6 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.GameMode;
-import net.minecraft.world.Heightmap;
 import net.minecraft.world.WorldProperties;
 import net.minecraft.world.border.WorldBorder;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
@@ -52,7 +51,7 @@ public class GameManager {
     private static final int GROUND_Y = 64;
     // The highest point must be more than this above the ground, otherwise the location is retried
     private static final int MIN_DROP = 128;
-    // Retry: teleport to random X/Z in [-RETRY_RANGE, RETRY_RANGE]
+    // Retry: random X/Z offset in [-RETRY_RANGE, RETRY_RANGE] from where the command was run
     private static final int RETRY_RANGE = 1000;
     private static final int MAX_RETRIES = 20;
 
@@ -99,32 +98,38 @@ public class GameManager {
             p.changeGameMode(GameMode.CREATIVE);
         }
 
-        // 2-4: Border around the player, find the highest point, retry elsewhere if the drop is too small
+        // 2-4: Border around the player, find the highest point, retry elsewhere if the drop is too small.
+        // Candidates are first checked cheaply from the generator noise (no chunk loading). Only a candidate
+        // that passes gets its chunks loaded and is scanned for real. Retries are random offsets from
+        // where the command was run. Players are not moved until the start position is known.
+        int originX = player.getBlockX();
+        int originZ = player.getBlockZ();
         double centerX = player.getX();
         double centerZ = player.getZ();
         TerrainScanner.Result scan;
         int attempt = 0;
         while (true) {
-            placeBorder(centerX, centerZ);
-            scan = TerrainScanner.scan(gameWorld, GROUND_Y);
-            int drop = scan.highest() == null ? -1 : scan.highest().getY() - GROUND_Y;
-            if (drop > MIN_DROP) break;
+            int drop = TerrainScanner.estimateHighestY(gameWorld, centerX, centerZ, BORDER_SIZE) - GROUND_Y;
+            boolean lastAttempt = attempt >= MAX_RETRIES;
+            if (drop > MIN_DROP || lastAttempt) {
+                placeBorder(centerX, centerZ);
+                TerrainScanner.loadChunks(gameWorld);
+                scan = TerrainScanner.scan(gameWorld, GROUND_Y);
+                drop = scan.highest() == null ? -1 : scan.highest().getY() - GROUND_Y;
+                if (drop > MIN_DROP) break;
+                if (lastAttempt) {
+                    server.getPlayerManager().broadcast(
+                        Text.literal("§c[Gezan] " + MAX_RETRIES + " 回やり直しても高低差 " + MIN_DROP + " 超の地点が見つかりませんでした。最後に試した地点で開始します。"), false);
+                    break;
+                }
+            }
 
             attempt++;
-            if (attempt > MAX_RETRIES) {
-                server.getPlayerManager().broadcast(
-                    Text.literal("§c[Gezan] " + MAX_RETRIES + " 回やり直しても高低差 " + MIN_DROP + " 超の地点が見つかりませんでした。現在地で開始します。"), false);
-                break;
-            }
-            centerX = gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
-            centerZ = gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
+            centerX = originX + gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
+            centerZ = originZ + gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
             server.getPlayerManager().broadcast(
-                Text.literal(String.format("§e[Gezan] 高低差 %d が %d 以下のためやり直し (%d 回目): x=%d z=%d へ移動",
+                Text.literal(String.format("§e[Gezan] 高低差 %d が %d 以下のためやり直し (%d 回目): x=%d z=%d を試します",
                     drop, MIN_DROP, attempt, (int) Math.floor(centerX), (int) Math.floor(centerZ))), false);
-            int y = gameWorld.getTopY(Heightmap.Type.WORLD_SURFACE, (int) Math.floor(centerX), (int) Math.floor(centerZ));
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-                p.teleport(gameWorld, centerX, y + 1, centerZ, Set.of(), p.getYaw(), p.getPitch(), false);
-            }
         }
         if (scan.highest() == null) {
             server.getPlayerManager().broadcast(Text.literal("§c[Gezan] 最高点が見つかりませんでした。"), false);

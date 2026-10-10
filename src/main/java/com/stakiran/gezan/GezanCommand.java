@@ -1,4 +1,4 @@
-package com.stakiran.mopup;
+package com.stakiran.gezan;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
@@ -6,12 +6,12 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 
-public class MopupCommand {
+public class GezanCommand {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         dispatcher.register(
-            CommandManager.literal("mopup")
-                .executes(MopupCommand::executeSetup)
+            CommandManager.literal("gezan")
+                .executes(GezanCommand::executeSetup)
         );
     }
 
@@ -19,7 +19,7 @@ public class MopupCommand {
     private static int executeSetup(CommandContext<ServerCommandSource> context) {
         ServerCommandSource source = context.getSource();
         if (source.getPlayer() == null) {
-            source.sendFeedback(() -> Text.literal("§c[Mopup] プレイヤーがコマンドを実行してください。"), false);
+            source.sendFeedback(() -> Text.literal("§c[Gezan] プレイヤーがコマンドを実行してください。"), false);
             return 0;
         }
 

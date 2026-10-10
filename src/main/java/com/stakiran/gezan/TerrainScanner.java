@@ -1,7 +1,8 @@
-package com.stakiran.mopup;
+package com.stakiran.gezan;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.EntityType;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
@@ -9,8 +10,9 @@ import net.minecraft.world.LightType;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.border.WorldBorder;
 
-// ゲームの規模の推定: ボーダー内・y>=minY で敵モブが湧ける場所を数える
-public class SpawnScanner {
+// ボーダー内の地形を一度に走査して、最高点（葉を除く）とゲームの規模を求める
+// 規模の計算式は mopup と同じ: y>=minY で敵モブが湧ける場所を数える
+public class TerrainScanner {
 
     // Sky light at or above this is "outdoor". At midnight sky light is reduced by 11,
     // so only these positions fail the light test; they also fail the sky light check
@@ -20,8 +22,9 @@ public class SpawnScanner {
     // Indoor positions spawn ~4x more often than outdoor ones
     private static final int INDOOR_WEIGHT = 4;
 
-    // maxSurfaceY: highest WORLD_SURFACE top (feet Y when standing on the highest block) inside the border
-    public record Result(int outdoor, int indoor, int maxSurfaceY) {
+    // highest: the highest block (not leaves, with a collision shape) inside the border.
+    // Null only if the border contains no such block at all.
+    public record Result(int outdoor, int indoor, BlockPos highest) {
         public int scale() {
             return (outdoor + indoor * INDOOR_WEIGHT) / 100;
         }
@@ -36,16 +39,22 @@ public class SpawnScanner {
 
         int outdoor = 0;
         int indoor = 0;
-        int maxSurfaceY = minY;
+        BlockPos highest = null;
         BlockPos.Mutable pos = new BlockPos.Mutable();
         BlockPos.Mutable below = new BlockPos.Mutable();
         BlockPos.Mutable above = new BlockPos.Mutable();
 
         for (int x = minX; x < maxX; x++) {
             for (int z = minZ; z < maxZ; z++) {
-                // Nothing to spawn on above the highest non-air block
+                // Y of the first air block above the highest non-air block (loads the chunk if needed)
                 int topY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                maxSurfaceY = Math.max(maxSurfaceY, topY);
+
+                // Walk down past leaves, plants, water etc. to the highest block one can stand on
+                int standY = findStandableY(world, x, topY - 1, z, world.getBottomY(), pos);
+                if (standY >= world.getBottomY() && (highest == null || standY > highest.getY())) {
+                    highest = new BlockPos(x, standY, z);
+                }
+
                 for (int y = minY; y <= topY; y++) {
                     pos.set(x, y, z);
                     if (!isSpawnable(world, pos, below, above)) continue;
@@ -58,7 +67,21 @@ public class SpawnScanner {
                 }
             }
         }
-        return new Result(outdoor, indoor, maxSurfaceY);
+        return new Result(outdoor, indoor, highest);
+    }
+
+    // Highest y in the column (starting at startY, going down) whose block has a collision shape
+    // and is not leaves. Returns bottomY - 1 if there is none.
+    private static int findStandableY(ServerWorld world, int x, int startY, int z, int bottomY, BlockPos.Mutable pos) {
+        for (int y = startY; y >= bottomY; y--) {
+            pos.set(x, y, z);
+            BlockState state = world.getBlockState(pos);
+            if (state.isAir()) continue;
+            if (state.isIn(BlockTags.LEAVES)) continue;
+            if (state.getCollisionShape(world, pos).isEmpty()) continue;
+            return y;
+        }
+        return bottomY - 1;
     }
 
     // Same conditions as a zombie (2 blocks tall) spawning, except light from the sky

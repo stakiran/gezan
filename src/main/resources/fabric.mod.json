@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "id": "mopup",
+  "id": "gezan",
   "version": "${version}",
-  "name": "Mop-up",
-  "description": "100マスのアンプリファイドワールドで地上の敵モブを掃討するミニゲームMOD",
+  "name": "Gezan",
+  "description": "100マスのアンプリファイドワールドで最高点から地上を目指す下山ミニゲームMOD",
   "authors": [
     "stakiran"
   ],
   "contact": {
-    "homepage": "https://github.com/stakiran/mopup",
-    "sources": "https://github.com/stakiran/mopup"
+    "homepage": "https://github.com/stakiran/gezan",
+    "sources": "https://github.com/stakiran/gezan"
   },
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
     "main": [
-      "com.stakiran.mopup.MopupMod"
+      "com.stakiran.gezan.GezanMod"
     ]
   },
   "mixins": [],

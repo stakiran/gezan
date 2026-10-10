@@ -31,10 +31,13 @@ public class TerrainScanner {
     }
 
     public static Result scan(ServerWorld world, int minY) {
+        // Only columns that lie entirely inside the border (bounds are at .5 when centered on a player).
+        // A bed in a column that straddles the border cannot be respawned at: vanilla requires the
+        // respawn bounding box to be fully inside the border.
         WorldBorder border = world.getWorldBorder();
-        int minX = (int) Math.floor(border.getBoundWest());
+        int minX = (int) Math.ceil(border.getBoundWest());
         int maxX = (int) Math.floor(border.getBoundEast());
-        int minZ = (int) Math.floor(border.getBoundNorth());
+        int minZ = (int) Math.ceil(border.getBoundNorth());
         int maxZ = (int) Math.floor(border.getBoundSouth());
 
         int outdoor = 0;

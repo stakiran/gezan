@@ -1,5 +1,6 @@
 package com.stakiran.gezan;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.BedBlock;
@@ -146,11 +147,8 @@ public class GameManager {
         }
 
         // 5, 7, 9: Reset player state so that a retry starts fair
-        float yaw = bedFacing.getOpposite().getPositiveHorizontalDegrees();
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-            p.setSpawnPoint(new ServerPlayerEntity.Respawn(
-                WorldProperties.SpawnPoint.create(gameWorld.getRegistryKey(), bedFootPos, yaw, 0.0f), true), false);
-            p.teleport(gameWorld, bedFootPos.getX() + 0.5, startY, bedFootPos.getZ() + 0.5, Set.of(), yaw, 0.0f, false);
+            sendToStart(p);
             KitManager.giveKit(p);
             p.setHealth(p.getMaxHealth());
             p.getHungerManager().setFoodLevel(20);
@@ -208,13 +206,28 @@ public class GameManager {
         if (gameWorld.getBlockState(underHead).getCollisionShape(gameWorld, underHead).isEmpty()) {
             gameWorld.setBlockState(underHead, Blocks.COBBLESTONE.getDefaultState());
         }
-        // Head room above the bed (the highest point may be a log under leaves)
+        clearBedHeadroom();
+        setBedBlocks();
+    }
+
+    // Head room above the bed (the highest point may be a log under leaves, or the player may have built there).
+    // Vanilla refuses to respawn on an obstructed bed, so this is also re-done before each respawn.
+    private static void clearBedHeadroom() {
         for (BlockPos base : new BlockPos[] {bedFootPos, bedHeadPos}) {
             for (int dy = 1; dy <= 2; dy++) {
-                gameWorld.setBlockState(base.up(dy), Blocks.AIR.getDefaultState());
+                if (!gameWorld.getBlockState(base.up(dy)).isAir()) {
+                    gameWorld.setBlockState(base.up(dy), Blocks.AIR.getDefaultState());
+                }
             }
         }
-        setBedBlocks();
+    }
+
+    // Spawn point = the bed, and move the player on top of it
+    private static void sendToStart(ServerPlayerEntity player) {
+        float yaw = bedFacing.getOpposite().getPositiveHorizontalDegrees();
+        player.setSpawnPoint(new ServerPlayerEntity.Respawn(
+            WorldProperties.SpawnPoint.create(gameWorld.getRegistryKey(), bedFootPos, yaw, 0.0f), true), false);
+        player.teleport(gameWorld, bedFootPos.getX() + 0.5, startY, bedFootPos.getZ() + 0.5, Set.of(), yaw, 0.0f, false);
     }
 
     private static void setBedBlocks() {
@@ -314,6 +327,15 @@ public class GameManager {
     public static void registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(GameManager::onTick);
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> resetState());
+
+        // Always come back to the start after dying, even if vanilla could not use the bed
+        // (it then sends the player to the world spawn and drops the spawn point)
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            if (currentPhase != Phase.GAME || alive) return;
+            if (newPlayer.getEntityWorld() != gameWorld) return;
+            clearBedHeadroom();
+            sendToStart(newPlayer);
+        });
     }
 
     private static void onTick(MinecraftServer server) {

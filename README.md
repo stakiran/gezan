@@ -1,7 +1,7 @@
 # gezan
-<img width="1127" height="610" alt="Image" src="https://github.com/user-attachments/assets/2913d7c7-5695-4aa1-b9c1-b33e0f909956" />
-
 下山マイクラ。アンプリファイド100マス世界で丸石だけで最高点→地上を目指す。
+
+[![下山マイクラ デモプレイ](https://img.youtube.com/vi/Nhue8YxnBgE/hqdefault.jpg)](https://www.youtube.com/watch?v=Nhue8YxnBgE)
 
 Minecraft (Java Edition) 用の Fabric MOD です。`/gezan` コマンドひとつで、プレイヤーの周囲 100×100 マスにワールドボーダーを敷き、その中の最高点から地上 (y<=64) まで降りるタイムを競うミニゲームが始まります。
 

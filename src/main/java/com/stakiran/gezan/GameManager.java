@@ -49,11 +49,6 @@ public class GameManager {
 
     // Feet Y at or below this is "ground"
     private static final int GROUND_Y = 64;
-    // The highest point must be more than this above the ground, otherwise the location is retried
-    private static final int MIN_DROP = 128;
-    // Retry: random X/Z offset in [-RETRY_RANGE, RETRY_RANGE] from where the command was run
-    private static final int RETRY_RANGE = 1000;
-    private static final int MAX_RETRIES = 20;
 
     // Win condition: stay on the ground for 5 seconds without leaving
     private static final int WIN_SECONDS = 5;
@@ -90,7 +85,7 @@ public class GameManager {
         // 1: Amplified check (warning only)
         if (!isAmplified(gameWorld)) {
             server.getPlayerManager().broadcast(
-                Text.literal("§c[Gezan] 警告: このワールドはアンプリファイドではありません。高低差が足りずやり直しが続く可能性があります。"), false);
+                Text.literal("§c[Gezan] 警告: このワールドはアンプリファイドではありません。高低差が小さくなる可能性があります。"), false);
         }
 
         // 2: Creative while setting up (safe to teleport around)
@@ -98,39 +93,10 @@ public class GameManager {
             p.changeGameMode(GameMode.CREATIVE);
         }
 
-        // 2-4: Border around the player, find the highest point, retry elsewhere if the drop is too small.
-        // Candidates are first checked cheaply from the generator noise (no chunk loading). Only a candidate
-        // that passes gets its chunks loaded and is scanned for real. Retries are random offsets from
-        // where the command was run. Players are not moved until the start position is known.
-        int originX = player.getBlockX();
-        int originZ = player.getBlockZ();
-        double centerX = player.getX();
-        double centerZ = player.getZ();
-        TerrainScanner.Result scan;
-        int attempt = 0;
-        while (true) {
-            int drop = TerrainScanner.estimateHighestY(gameWorld, centerX, centerZ, BORDER_SIZE) - GROUND_Y;
-            boolean lastAttempt = attempt >= MAX_RETRIES;
-            if (drop > MIN_DROP || lastAttempt) {
-                placeBorder(centerX, centerZ);
-                TerrainScanner.loadChunks(gameWorld);
-                scan = TerrainScanner.scan(gameWorld, GROUND_Y);
-                drop = scan.highest() == null ? -1 : scan.highest().getY() - GROUND_Y;
-                if (drop > MIN_DROP) break;
-                if (lastAttempt) {
-                    server.getPlayerManager().broadcast(
-                        Text.literal("§c[Gezan] " + MAX_RETRIES + " 回やり直しても高低差 " + MIN_DROP + " 超の地点が見つかりませんでした。最後に試した地点で開始します。"), false);
-                    break;
-                }
-            }
-
-            attempt++;
-            centerX = originX + gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
-            centerZ = originZ + gameWorld.getRandom().nextBetween(-RETRY_RANGE, RETRY_RANGE) + 0.5;
-            server.getPlayerManager().broadcast(
-                Text.literal(String.format("§e[Gezan] 高低差 %d が %d 以下のためやり直し (%d 回目): x=%d z=%d を試します",
-                    drop, MIN_DROP, attempt, (int) Math.floor(centerX), (int) Math.floor(centerZ))), false);
-        }
+        // 2-4: Border around the player, then find the highest point inside it.
+        // The drop (highest point - ground) is whatever the terrain gives; the location is never retried.
+        placeBorder(player.getX(), player.getZ());
+        TerrainScanner.Result scan = TerrainScanner.scan(gameWorld, GROUND_Y);
         if (scan.highest() == null) {
             server.getPlayerManager().broadcast(Text.literal("§c[Gezan] 最高点が見つかりませんでした。"), false);
             resetState();

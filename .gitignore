@@ -1,0 +1,31 @@
+# gradle
+.gradle/
+build/
+out/
+
+# idea
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+.vscode/
+.settings/
+
+# fabric
+run/
+logs/
+*.log
+
+# system
+.DS_Store
+Thumbs.db
+
+# eclipse
+bin/
+.project
+.classpath
+
+# claude local
+settings.local.json

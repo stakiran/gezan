@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "mopup",
+  "version": "${version}",
+  "name": "Mop-up",
+  "description": "100マスのアンプリファイドワールドで地上の敵モブを掃討するミニゲームMOD",
+  "authors": [
+    "stakiran"
+  ],
+  "contact": {
+    "homepage": "https://github.com/stakiran/mopup",
+    "sources": "https://github.com/stakiran/mopup"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.stakiran.mopup.MopupMod"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.19.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

@@ -16,6 +16,6 @@ public class KitManager {
             player.getInventory().setStack(slot, new ItemStack(Items.COBBLESTONE, 64));
         }
         player.getInventory().setStack(7, new ItemStack(Items.TORCH, 64));
-        player.getInventory().setStack(8, new ItemStack(Items.COOKED_BEEF, 64));
+        player.getInventory().setStack(8, new ItemStack(Items.COOKED_BEEF, 8));
     }
 }
